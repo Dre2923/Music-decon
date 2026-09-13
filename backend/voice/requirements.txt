@@ -1,0 +1,14 @@
+# Manifesto Section 4 / docs/DEPENDENCY_REGISTER.md.
+#
+# openai-whisper has no wheel on PyPI (sdist only) but is pure Python,
+# so pip builds it locally on any platform, including Raspberry Pi 5's
+# ARM64. Its own dependencies (torch, numba, tiktoken, more-itertools,
+# llvmlite) do have prebuilt ARM64 (manylinux*_aarch64) wheels --
+# confirmed by downloading each for that platform from this session.
+# `triton` is a dependency only on x86_64 Linux (its own marker), so
+# it is not required on the Pi 5's ARM64.
+openai-whisper>=20250625
+librosa>=0.11,<0.12   # only used here for resampling to Whisper's 16kHz
+
+# Test-only
+pytest>=8.0
