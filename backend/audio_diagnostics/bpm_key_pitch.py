@@ -1,32 +1,43 @@
 """BPM, key, and pitch analysis over a completed audio chunk.
 
-Manifesto Section 3: librosa (ISC, permissive) analyzes a finished
-buffer -- capture and analysis are separate concerns (see
-audio_capture.py). Every function returns a DiagnosticResult carrying
-the analyzer's own confidence; nothing here presents a bare number as
-certainty.
+Manifesto Section 3: "Chosen: librosa (ISC License, permissive) +
+bpm-detector (MIT, uses librosa internally)". BPM and key detection
+call the actual vendored bpm-detector library (see
+backend/audio_diagnostics/vendor/bpm-detector/NOTICE.md for its exact
+pinned commit and license) rather than a hand-rolled substitute -- an
+earlier version of this file used librosa's beat tracker and a
+self-written Krumhansl-Kessler key correlation directly; that was an
+undisclosed deviation from the manifesto's named dependency and has
+been replaced with the real library.
+
+Pitch estimation uses librosa's own pYIN directly, which is not a
+substitution: librosa itself is a manifesto-named dependency and pYIN
+is one of its first-class functions, not an invented algorithm.
+
+Capture and analysis remain separate concerns (see audio_capture.py):
+every function here analyzes one already-captured chunk. Every
+function returns a DiagnosticResult carrying the analyzer's own
+confidence; nothing here presents a bare number as certainty.
 """
 
 from __future__ import annotations
 
 import librosa
 import numpy as np
+from bpm_detector.key_detector import KeyDetector as _VendoredKeyDetector
+from bpm_detector.music_analyzer import BPMDetector as _VendoredBPMDetector
 
 from .audio_capture import AudioChunk
 from .diagnostic_result import DiagnosticResult
 
-_ALGORITHM_VERSION = librosa.__version__
+_LIBROSA_VERSION = librosa.__version__
 
-_PITCH_CLASS_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+try:
+    import bpm_detector as _bpm_detector_pkg
 
-# Krumhansl-Kessler key profiles: a chromagram is correlated against a
-# rotation of each of these to score all 24 major/minor key candidates.
-_MAJOR_PROFILE = np.array(
-    [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88]
-)
-_MINOR_PROFILE = np.array(
-    [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17]
-)
+    _BPM_DETECTOR_VERSION = _bpm_detector_pkg.__version__
+except ImportError:  # pragma: no cover - import above already requires it
+    _BPM_DETECTOR_VERSION = "unknown"
 
 
 def _input_characteristics(chunk: AudioChunk) -> dict:
@@ -38,65 +49,32 @@ def _input_characteristics(chunk: AudioChunk) -> dict:
 
 
 def analyze_bpm(chunk: AudioChunk) -> DiagnosticResult:
-    """Estimate tempo (BPM) via librosa's onset-strength beat tracker."""
-    onset_env = librosa.onset.onset_strength(y=chunk.samples, sr=chunk.sample_rate)
-    tempo, beat_frames = librosa.beat.beat_track(
-        onset_envelope=onset_env, sr=chunk.sample_rate
+    """Estimate tempo (BPM) via the vendored bpm-detector library."""
+    detector = _VendoredBPMDetector(sr=chunk.sample_rate)
+    tempo_value, confidence_0_100, _top_bpms, _top_hits = detector.detect(
+        chunk.samples, chunk.sample_rate
     )
-    tempo_value = float(np.atleast_1d(tempo)[0])
-
-    # librosa's beat tracker doesn't expose a first-class tempo
-    # probability, so this derives a confidence proxy from how strongly
-    # the detected beat grid lines up with the onset-strength envelope.
-    # This is an implementation choice for the proxy, not a claim that
-    # it is the analyzer's own probability -- the algorithm name below
-    # says so explicitly.
-    if len(beat_frames) >= 2 and onset_env.size > 0 and onset_env.max() > 0:
-        beat_strength = onset_env[beat_frames].mean()
-        confidence = float(np.clip(beat_strength / onset_env.max(), 0.0, 1.0))
-    else:
-        confidence = 0.0
 
     return DiagnosticResult(
-        value=tempo_value,
-        confidence=confidence,
-        algorithm="librosa.beat.beat_track+onset_strength_confidence_proxy",
-        algorithm_version=_ALGORITHM_VERSION,
+        value=float(tempo_value),
+        confidence=float(np.clip(confidence_0_100 / 100.0, 0.0, 1.0)),
+        algorithm="bpm_detector.music_analyzer.BPMDetector.detect",
+        algorithm_version=_BPM_DETECTOR_VERSION,
         analyzed_at=DiagnosticResult.now(),
         input_characteristics=_input_characteristics(chunk),
     )
 
 
 def analyze_key(chunk: AudioChunk) -> DiagnosticResult:
-    """Estimate musical key via chroma correlation against Krumhansl-Kessler profiles."""
-    chroma = librosa.feature.chroma_cqt(y=chunk.samples, sr=chunk.sample_rate)
-    chroma_mean = chroma.mean(axis=1)
-
-    best_key = None
-    best_score = -np.inf
-    all_scores: list[float] = []
-    for shift in range(12):
-        major_corr = np.corrcoef(np.roll(_MAJOR_PROFILE, shift), chroma_mean)[0, 1]
-        minor_corr = np.corrcoef(np.roll(_MINOR_PROFILE, shift), chroma_mean)[0, 1]
-        for corr, mode in ((major_corr, "major"), (minor_corr, "minor")):
-            corr = 0.0 if np.isnan(corr) else float(corr)
-            all_scores.append(corr)
-            if corr > best_score:
-                best_score = corr
-                best_key = f"{_PITCH_CLASS_NAMES[shift]} {mode}"
-
-    # Normalize the winning correlation against the spread of all 24
-    # candidate scores: a clear winner scores near 1, a near-tie among
-    # keys scores low, rather than reporting a raw correlation that
-    # could itself be negative or misleadingly high.
-    spread = max(all_scores) - min(all_scores)
-    confidence = float(np.clip(best_score, 0.0, 1.0)) if spread > 1e-6 else 0.0
+    """Estimate musical key via the vendored bpm-detector library."""
+    detector = _VendoredKeyDetector()
+    key_label, confidence_0_100 = detector.detect(chunk.samples, chunk.sample_rate)
 
     return DiagnosticResult(
-        value=best_key,
-        confidence=confidence,
-        algorithm="librosa.feature.chroma_cqt+krumhansl_kessler_correlation",
-        algorithm_version=_ALGORITHM_VERSION,
+        value=key_label,
+        confidence=float(np.clip(confidence_0_100 / 100.0, 0.0, 1.0)),
+        algorithm="bpm_detector.key_detector.KeyDetector.detect",
+        algorithm_version=_BPM_DETECTOR_VERSION,
         analyzed_at=DiagnosticResult.now(),
         input_characteristics=_input_characteristics(chunk),
     )
@@ -119,7 +97,7 @@ def analyze_pitch(chunk: AudioChunk) -> DiagnosticResult:
             value=None,
             confidence=0.0,
             algorithm="librosa.pyin",
-            algorithm_version=_ALGORITHM_VERSION,
+            algorithm_version=_LIBROSA_VERSION,
             analyzed_at=DiagnosticResult.now(),
             input_characteristics=_input_characteristics(chunk),
         )
@@ -128,7 +106,7 @@ def analyze_pitch(chunk: AudioChunk) -> DiagnosticResult:
         value=float(np.median(voiced_f0)),
         confidence=float(np.mean(voiced_confidence)),
         algorithm="librosa.pyin",
-        algorithm_version=_ALGORITHM_VERSION,
+        algorithm_version=_LIBROSA_VERSION,
         analyzed_at=DiagnosticResult.now(),
         input_characteristics=_input_characteristics(chunk),
     )

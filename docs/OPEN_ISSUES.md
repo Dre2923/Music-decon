@@ -15,6 +15,7 @@ Do not delete a row when work starts on it — move it to "Resolved" with the de
 | 5 | Open-Unmix non-`umxl` model artifact licenses | 6 | Requires individual artifact-level verification; `umxl` itself is confirmed CC BY-NC-SA 4.0 and is already excluded | Packaging any Open-Unmix pretrained model besides an already-cleared one |
 | 6 | PyDMX vs. DmxPy final selection | 5 | Manifesto says license/hardware support must be reconfirmed "at integration time" | Building the DMX output abstraction against a concrete library |
 | 7 | Windows/Microsoft Store certification lead time for this app's package type | 6a | Not quantified in the manifesto; affects release scheduling | Windows release-date planning |
+| 8 | Vendored `bpm-detector`'s real dependency footprint (scikit-learn, matplotlib, seaborn, pandas, psutil pulled in by its own `__init__.py`) has not been benchmarked on Raspberry Pi 5 | 3, 10.12 | Manifesto describes bpm-detector as thin ("uses librosa internally"); the actual package is a full analysis suite with a much larger footprint — same "must benchmark on real Pi hardware, not assume" principle the manifesto already applies to loqa-voice-dsp in Section 4a | Treating `backend/audio_diagnostics/bpm_key_pitch.py` BPM/key detection as production-ready on the Pi 5 backend |
 
 ## Deferred by design (not blocking, but not in scope without a deliberate decision to un-defer)
 
@@ -26,9 +27,7 @@ Do not delete a row when work starts on it — move it to "Resolved" with the de
 
 Per manifesto Section 0: a shortcut must be identified explicitly, its risks explained, and the full-standard alternative presented — it may not silently replace the approved design.
 
-| # | Shortcut | Manifesto ref | Full detail |
-|---|---|---|---|
-| S1 | `backend/audio_diagnostics/bpm_key_pitch.py` calls `librosa.beat.beat_track` directly instead of depending on the named `bpm-detector` package | Section 3 | See "Deviation notice" in `DEPENDENCY_REGISTER.md` |
+_(none currently outstanding — S1 below was resolved, not authorized as-is)_
 
 ## Standing mechanism (not a single item — ongoing)
 
@@ -38,7 +37,9 @@ Per manifesto Section 0: a shortcut must be identified explicitly, its risks exp
 
 ## Resolved
 
-_(none yet)_
+| # | Item | Resolution | Date |
+|---|---|---|---|
+| S1 | `bpm_key_pitch.py` used `librosa.beat.beat_track` directly + a self-written key-correlation function instead of the named `bpm-detector` package | User explicitly rejected the shortcut. The real `libraz/bpm-detector` (MIT) was found, reviewed, pinned at commit `9e82ed544edd7f06a5459b8fa8fe539f20335df8`, and vendored into `backend/audio_diagnostics/vendor/bpm-detector/`. `bpm_key_pitch.py` now calls its real `BPMDetector`/`KeyDetector` classes. See `DEPENDENCY_REGISTER.md` "Resolved: bpm-detector shortcut" | 2026-09-13 |
 
 ---
 

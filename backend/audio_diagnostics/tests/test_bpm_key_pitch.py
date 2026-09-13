@@ -33,7 +33,7 @@ def test_analyze_bpm_detects_known_tempo(click_track_120bpm_chunk):
 def test_analyze_key_detects_known_triad(c_major_chord_chunk):
     result = analyze_key(c_major_chord_chunk)
 
-    assert result.value == "C major"
+    assert result.value == "C Major"
     assert result.confidence > 0.5
 
 
