@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Node / JS tooling (client build tooling, if used)
+node_modules/
+dist/
+build/
+
+# iOS
+clients/ios/**/DerivedData/
+clients/ios/**/*.xcuserstate
+clients/ios/**/Pods/
+
+# Android
+clients/android/**/.gradle/
+clients/android/**/build/
+clients/android/**/local.properties
+
+# Windows / general build output
+clients/windows/**/bin/
+clients/windows/**/obj/
+
+# Secrets — must never be committed (manifesto Section 10.5)
+.env
+.env.*
+*.pem
+*.p12
+*secrets*
+!docs/**
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
