@@ -22,6 +22,14 @@ Do not delete a row when work starts on it — move it to "Resolved" with the de
 |---|---|---|---|
 | D1 | Teacher/coach dashboard | 8 | Explicitly deferred; must not be built by quietly reusing family-profile permissions |
 
+## Shortcuts taken, pending authorization
+
+Per manifesto Section 0: a shortcut must be identified explicitly, its risks explained, and the full-standard alternative presented — it may not silently replace the approved design.
+
+| # | Shortcut | Manifesto ref | Full detail |
+|---|---|---|---|
+| S1 | `backend/audio_diagnostics/bpm_key_pitch.py` calls `librosa.beat.beat_track` directly instead of depending on the named `bpm-detector` package | Section 3 | See "Deviation notice" in `DEPENDENCY_REGISTER.md` |
+
 ## Standing mechanism (not a single item — ongoing)
 
 | # | Item | Manifesto ref | Cadence |

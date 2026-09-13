@@ -1,0 +1,11 @@
+# Manifesto Section 3 / docs/DEPENDENCY_REGISTER.md.
+# Live-microphone capture (sounddevice) is optional and only needed on
+# a device with real audio hardware -- not required to run the tests.
+librosa>=0.11,<0.12
+numpy>=2.0,<3.0
+scipy>=1.11
+soundfile>=0.12
+sounddevice>=0.4; platform_system != "Emscripten"
+
+# Test-only
+pytest>=8.0

@@ -7,7 +7,7 @@ Required by `MANIFESTO.md` Section 10.1 and Section 13. Every third-party compon
 | Component | Role | Code license | Model/weight license | Dataset license | Commercial use | Redistribution | Attribution required | Date checked | Source |
 |---|---|---|---|---|---|---|---|---|---|
 | librosa | BPM / key / pitch analysis | ISC (permissive) | N/A | N/A | Yes | Yes | Per ISC notice | 2026-09-12 (manifesto baseline) | confirm from primary source |
-| bpm-detector | BPM detection (wraps librosa) | MIT | N/A | N/A | Yes | Yes | Per MIT notice | 2026-09-12 (manifesto baseline) | confirm from primary source |
+| bpm-detector | BPM detection (wraps librosa) — **not currently vendored; see deviation note below** | MIT | N/A | N/A | Yes | Yes | Per MIT notice | 2026-09-12 (manifesto baseline) | confirm from primary source |
 | OpenAI Whisper | Local/offline speech recognition | MIT | MIT (as of manifesto baseline — reconfirm before release) | Not redistributed | Yes | Yes | Per MIT notice | 2026-09-12 (manifesto baseline) | confirm from primary source |
 | Deepgram (API/SDK) | Connected-mode cloud transcription | N/A (hosted API) | N/A | N/A | Yes, per current Terms (checked against the Aug 6, 2026 revision per manifesto) — **must reconfirm before each release**; training-data opt-out must be set on every request | N/A (API, not redistributed) | Per Deepgram Terms | 2026-09-12 (manifesto baseline; underlying terms dated Aug 6, 2026) | confirm from primary source |
 | loqa-voice-dsp | Deep vocal/pitch DSP (YIN/pYIN, formants, HNR, H1-H2) | MIT | N/A (DSP, not a trained model) | N/A | Yes | Yes | Per MIT notice | 2026-09-12 (manifesto baseline) | confirm from primary source |
@@ -16,6 +16,18 @@ Required by `MANIFESTO.md` Section 10.1 and Section 13. Every third-party compon
 | Spleeter (code) | Source separation (candidate) | MIT | **BLOCKED — see OPEN_ISSUES.md #4. Do not ship pretrained weights until documented here with confirmed commercial redistribution rights.** | Not yet documented | Code: yes. Weights: blocked | Code: yes. Weights: blocked | Per MIT notice (code) | 2026-09-12 (manifesto baseline) | confirm from primary source |
 | Open-Unmix (code) | Source separation (candidate) | MIT | `umxl`: CC BY-NC-SA 4.0 — **non-commercial, must never ship in the commercial product**. Other models: unverified, see OPEN_ISSUES.md #5 | Not yet documented | Code: yes. `umxl` weights: no. Other weights: unverified | Code: yes. `umxl`: no. Other weights: unverified | Per MIT notice (code) | 2026-09-12 (manifesto baseline) | confirm from primary source |
 | Demucs (code) | Source separation (candidate) | MIT | Not yet documented | Not yet documented | Confirm; also confirm maintenance status — original repo archived by Meta Jan 2025 | Confirm | Per MIT notice (code) | 2026-09-12 (manifesto baseline) | confirm from primary source |
+
+## Deviation notice — `backend/audio_diagnostics/bpm_key_pitch.py`
+
+**Shortcut taken:** the initial BPM implementation calls `librosa.beat.beat_track` directly instead of depending on the `bpm-detector` package the manifesto names (Section 3: "librosa + bpm-detector").
+
+**Why:** `bpm-detector` is not resolvable as an installable PyPI package under that name in this build environment (`pip index versions bpm-detector` and `pip download` both fail with no matching distribution). Per the manifesto's own description, `bpm-detector` is a thin MIT-licensed wrapper that "uses librosa internally" — calling `librosa.beat.beat_track` directly reaches the same underlying algorithm without introducing an unresolvable dependency.
+
+**Risk/disadvantage:** if the actual upstream `bpm-detector` project (correct package name/source not yet confirmed) adds behavior beyond a thin wrapper — e.g. its own confidence scoring, smoothing, or edge-case handling — this implementation does not benefit from that and instead uses a locally-defined confidence proxy (documented in the code) that is not the same as the analyzer's own probability.
+
+**Full-standard alternative:** locate the exact upstream `bpm-detector` repository referenced by the manifesto, confirm its real package/import name and license, vendor or depend on it directly, and replace the direct `librosa.beat.beat_track` call with it.
+
+**Status:** shortcut in place, not yet authorized as a permanent design change. Needs explicit sign-off before being treated as final, or replacement with the full-standard alternative.
 
 ## Process
 
